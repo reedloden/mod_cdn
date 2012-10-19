@@ -1,0 +1,50 @@
+mod_cdn: cdn-ify a website
+Kris Beevers <kbeevers@voxel.net>
+http://agile.internap.com/mod-cdn
+
+
+Overview
+----------------------------------------------------------------------
+mod_cdn is an apache2 module developed at Voxel dot Net that makes
+VoxCAST and other CDNs easier to use by automatically "CDNifying" some
+HTML content and "originifying" the origin apache server to send
+proper headers, validate authentication tokens, etc.  mod_cdn is meant
+to be installed and configured on a CDN customer's origin server.
+
+Some parts of mod_cdn are based on code from mod_proxy_html
+(http://apache.webthing.com/mod_proxy_html/).
+
+In addition to apache2, mod_cdn currently requires libxml2 to be
+installed.
+
+
+Features
+----------------------------------------------------------------------
+mod_cdn currently has the following features:
+
+* Find links to content (e.g. img src tags) in HTML and rewrite the
+  URLs to point to a different server (e.g., a VoxCAST host)
+* Automatically add authentication token query string
+  arguments to links in HTML that are being CDNified
+* Automatically add query string ignore tokens in the query strings of
+  URLs being CDNified, relative to some other query string argument
+* Add proper Expires headers to static content for which the server is
+  the CDN origin
+* Add "Vox-Authorization: required" headers to static content for
+  which the server is the CDN origin, and which requires
+  authentication
+* Verify the authentication tokens in query string arguments of static
+  content requests for which the server is the CDN origin
+
+Most sites probably don't need all of these features; they can each be
+turned on and off and configured at a fairly high granularity.
+
+A major coming-soon feature is dynamic threshold based switching
+between CDN and non-CDN that takes into account server load metrics.
+
+
+Documentation
+----------------------------------------------------------------------
+Complete documentation for mod_cdn is available at
+http://agile.internap.com/mod-cdn.  This includes documentation about
+installing and configuring the module.

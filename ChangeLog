@@ -1,0 +1,51 @@
+2010-03-15	Reed Loden	reed@voxel.net
+
+	* bump version to 1.1.1
+
+2010-03-13	Reed Loden	reed@voxel.net
+
+	* use autotools for compliation, which allows for better
+	machine-specific automated configuration
+
+	* change cdn.load to use a relative path for the LoadModule statement
+
+2009-11-29	Reed Loden	reed@voxel.net
+
+	* add support for proxies via the X-Forwarded-For HTTP header
+
+2009-11-24	Reed Loden	reed@voxel.net
+
+	* add support for SSL-based VoxCAST devices;
+	NOTE: the format for CDNHTMLToServer has changed slightly;
+	existing users will need to update their configurations
+	(see example.conf)
+
+	* add support for new authentication token scheme
+
+	* fix lots of compiler warnings and perform some code clean-up
+
+2008-10-21	Kris Beevers	kbeevers@voxel.net
+
+	* fix HTML entities like &amp; that get clobbered by libxml2
+
+	* change CDNHTMLStartParse to dump anything before the start tag
+	directly to the output as-is, rather than discarding it
+	
+2008-10-06	Kris Beevers	kbeevers@voxel.net
+
+	* add support for sniffing text/html encoding, based on
+	mod_proxy_html's sniffing
+	
+	* add CDNHTMLDefaultCharset to specify default input character
+	encoding
+	
+	* for now, always output utf8
+
+2008-09-09	Kris Beevers	kbeevers@voxel.net
+
+	* only print out doctype at the beginning of the document, not
+	with every bucket!
+
+2008-09-08	Kris Beevers	kbeevers@voxel.net
+
+	* initial release
