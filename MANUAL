@@ -1,0 +1,379 @@
+======================================================================
+mod_cdn -- a quick primer
+======================================================================
+
+With mod_cdn, turning up a CDN for your website is as easy as setting
+up a simple apache module.
+
+mod_cdn is an apache2 module developed at Internap that makes VoxCAST
+and other CDNs easier to use by automatically "CDNifying" some HTML
+content and "originifying" the origin apache server to send proper
+headers, validate authentication tokens, etc. mod_cdn is meant to be
+installed and configured on a CDN customer's origin server. With
+mod_cdn, turning up a CDN for your website is as easy as setting up a
+simple apache module.
+
+The source code for mod_cdn is available under the GPL v2 license.
+
+Please direct technical questions about mod_cdn to
+agile-support@internap.com. Also, check out the FAQ below to see if
+your questions have already been addressed.
+
+Features
+----------------------------------------------------------------------
+
+mod_cdn currently has the following features:
+
+* Find links to content (e.g. img src tags) in HTML and rewrite the
+  URLs to point to a different server (e.g., an Internap CDN host)
+
+* Automatically add voxtoken authentication token query string
+  arguments to links in HTML that are being CDNified
+
+* Automatically add query string ignore tokens in the query strings of
+  URLs being CDNified, relative to some other query string argument
+
+* Add proper Expires headers to static content for which the server is
+  the CDN origin
+
+* Add Vox-Authorization: required headers to static content for which
+  the server is the CDN origin, and which requires authentication
+
+* Verify the authentication tokens in query string arguments of static
+  content requests for which the server is the CDN origin
+
+Most sites probably don't need all of these features; they can each be
+turned on and off and configured at a fairly high granularity.
+
+Another major feature in the works is dynamic threshold based
+switching between CDN and non-CDN that takes into account server
+load. Let us know if you think of other features we should add to
+mod_cdn -- or send us a patch!
+
+While some of mod_cdn's features are specific to our VoxCAST CDN,
+mod_cdn is almost as useful for customers of other CDNs: server
+remapping, Expires headers, and other mod_cdn features address
+CDNification tasks common to most CDNs.
+
+Downloads
+----------------------------------------------------------------------
+
+mod_cdn is available on Github at
+https://github.com/internaplabs/mod_cdn -- just do:
+
+  git clone git://github.com/internaplabs/mod_cdn.git
+
+Please note: mod_cdn has mainly been tested on Internap's apache
+deployments and may need some tweaking to work on other setups. Please
+let us know if you encounter problems (or find solutions)!
+
+Installing mod_cdn
+----------------------------------------------------------------------
+
+There's no package for mod_cdn. The module consists of an apache
+module (dynamic library) that must be put in
+/var/lib/apache2/modules/mod_cdn.so (the path might be slightly
+different on your system). To load the module, place cdn.load and
+cdn.conf in /etc/apache2/mods-available and link to them from
+mods-enabled. (Again, the procedure might be slightly different for
+you -- our instructions are based on a Debian installation.)
+
+cdn.conf
+----------------------------------------------------------------------
+
+The global (apache-wide) configuration for mod_cdn in cdn.conf
+includes a few directives that should work as-is for pretty much
+everyone. These are:
+
+* CDNHTMLContentType
+
+  Defines the set of content types that will be parsed as (X)HTML and
+  CDNified. The defaults are text/html and application/xhtml+xml. If
+  other content types should be CDNified (and are really just HTML)
+  then you can add them to the list. You can also just include the
+  directive elsewhere (e.g. within a VirtualHost or Directory/Location
+  section) and any new values will be added to the list.
+
+* CDNHTMLLinks
+
+  Defines the set of HTML tag/attribute pairs that we expect to
+  contain links to content. mod_cdn will look for these
+  tags/attributes and, when found, will CDNify the link if
+  necessary. There are some tag/attribute pairs that contain URLs, but
+  which we probably don't want to CDNify, like form/action. These are
+  left out of the list in cdn.conf. New tag/attribute pairs can be
+  added either in cdn.conf or elsewhere in the apache config tree.
+
+Configuration
+----------------------------------------------------------------------
+
+To configure mod_cdn, there are a variety of apache config directives
+that control HTML parsing/replacing and other originification
+options. Almost always, these directives should be applied within a
+VirtualHost section, and probably even within a Directory/Location
+section, especially in the case of CDNActAsOrigin, where often the
+content you want offloaded to the CDN is within a particular directory
+(e.g., /images).
+
+See the example.conf shipped with mod_cdn for some sample uses of
+these directives.
+
+* CDNHTMLFromServers
+
+  CDNHTMLFromServers static.example.com images.example.com ...
+
+  By default, any relative links (e.g. "../blah.png") and locally
+  absolute links ("/path/to/blah.png") that match a regex defined with
+  CDNHTMLRemapURLServer will be CDNified. In addition, globally
+  absolute links ("http://example.com/path/to/blah.gif") where the
+  server name matches the current VHost's ServerName or one of its
+  ServerAliases will be CDNified if they match. It may be the case
+  that some of the content linked to in the HTML has URLs on a
+  different server (e.g., "static.example.com"). CDNHTMLFromServers
+  specifies a list of servernames for which we'll CDNify globally
+  absolute links that match one of the regexes.
+
+* CDNHTMLToServer
+
+  CDNHTMLToServer http://1234.voxcdn.com 
+
+  Set the CDN hostname to which traffic will be redirected. This
+  should be in the form of http[s]://xxxx.voxcdn.com[:port].
+
+* CDNHTMLRemapURLServer
+
+  CDNHTMLRemapURLServer regex flags
+
+  The main workhorse for CDNification via server remapping. Multiple
+  instances of this directive can be used. If the regex matches a URL
+  in the HTML, the URL is remapped to point to the
+  CDNHTMLToServer. The flags affect the regex matching and the URL
+  rewriting. Flags are individual letters, unseparated by any spaces,
+  and include:
+
+  - 'x': use POSIX extended regular expressions
+  - 'i': ignore case in matching the regex
+  - 'a': add voxtoken authentication tokens to the query strings or
+    matching URLS, based on CDNAuthKey
+  - 'q': add query string ignore tokens to the query strings of
+    matching URLs, based on CDNIgnoreTokenName and
+    CDNHTMLIgnoreTokenLocation
+
+  For example, to match all files with a .png extension and no query
+  string, and add authentication tokens to them:
+
+    CDNHTMLRemapURLServer \.png$ ia
+
+  To match .pngs with a query string and also add a query string
+  ignore token:
+
+    CDNHTMLRemapURLServer \.png\? iaq
+
+* CDNHTMLDocType
+
+  CDNHTMLDocType [HTML|XHTML] [legacy]
+
+  Set the DOCTYPE tag that will be inserted at the top of the HTML:
+
+  - HTML: <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+  - HTML+legacy: <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01
+    Transitional//EN">
+  - XHTML: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+  - XHTML+legacy: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0
+    Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+  - other: anything other than "HTML" or "XHTML" (with optional
+    "legacy") will be inserted as the DOCTYPE tag directly, at the top
+    of the document.
+
+  If this directive is omitted, no DOCTYPE is inserted but any
+  existing one will not be passed through.
+
+* CDNHTMLDefaultCharset
+
+  CDNHTMLDefaultCharset utf-8
+
+  Specify the default input character set to be used if one cannot be
+  automatically detected. Currently, mod_cdn always outputs UTF-8.
+
+* CDNHTMLStartParse
+
+  CDNHTMLStartParse tagname
+
+  Specify an HTML tag such that anything in front of the first
+  occurrence of the tag in the document is ignored. For example:
+
+    CDNHTMLStartParse html
+
+  ignores anything that comes before the <html> tag.
+
+* CDNAuthKey
+
+  CDNAuthKey string
+
+  Specify the authentication key (assigned by Internap or set via the
+  CDN portal) for generating and verifying authentication tokens. Note
+  that in using mod_cdn's authentication capabilities, caution needs
+  to be taken in changing the authentication key for the CDN host.
+
+* CDNAuthAlt
+
+  CDNAuthAlt http://example.com/failed-auth.html
+
+  Specify a URL to which a user will be redirected if a request for an
+  object fails authentication (i.e., the voxtoken supplied with the
+  request is incorrect).
+
+* CDNAuthExpire
+
+  CDNAuthExpire 900
+
+  Set the default expiration time in seconds for generated
+  authentication tokens.
+
+* CDNHTMLAddAuthTokens
+
+  CDNHTMLAddAuthTokens on
+
+  This is just a shortcut that is the same as setting the 'a' flag for
+  every CDNHTMLRemapURLServer directive.
+
+* CDNIgnoreTokenName
+
+  CDNIgnoreTokenName string
+
+  Set the name of a query string argument that will be inserted into
+  the query string of remapped URLs when the 'q' flag is set (or for
+  every remapped URL if CDNHTMLAddIgnoreTokens is set). (What will
+  actually be inserted is "string=ignore" since VoxCAST currently
+  expects the ignore token argument to include a value.)
+
+* CDNHTMLIgnoreTokenLocation
+
+  CDNHTMLIgnoreTokenLocation [before|after] arg-name
+
+  Set the relative insertion point of the ignore token into the query
+  string when the ignore token is being added to a remapped URL. The
+  token is inserted either before or after some other query string
+  argument (arg-name). For example, to insert the ignore token before
+  timestamp in a query string like
+  "?id=52&type=png&timestamp=1220435841":
+
+    CDNHTMLIgnoreTokenLocation before timestamp
+
+* CDNHTMLAddIgnoreTokens
+
+  CDNHTMLAddIgnoreTokens on
+
+  This is just a shortcut that is the same as setting the 'q' flag for
+  every CDNHTMLRemapURLServer directive.
+
+* CDNActAsOrigin
+
+  CDNActAsOrigin regex flags [expiration-time]
+
+  The main workhorse for "originification", i.e., delivery of requests
+  from the CDN for which the server running mod_cdn is the origin. The
+  response for requests where the requested URL matches the regex are
+  modified according to the flags. Flags include:
+
+  - 'x': use POSIX extended regular expressions
+  - 'i': ignore case in matching the regex
+  - 'e': add an Expires header to the response. If the expiration-time
+    value is set, this will be used to compute the time of expiration;
+    otherwise, the value set with CDNDefaultExpire is used.
+  - 'a': add a Vox-Authorization: required header to the response
+    (with an alternative URL if specified by CDNAuthAlt), and verify
+    that voxtoken is set and correct in the request's query string; if
+    not, return a 403 response code.
+
+* CDNDefaultExpire
+
+  CDNDefaultExpire seconds
+
+  Set the default expiration time in seconds for content that matches
+  one of the CDNActAsOrigin regexes.
+
+FAQ
+----------------------------------------------------------------------
+
+Here are the answers to some tricky questions you might have while
+implementing mod_cdn.
+
+* How do I compile mod_cdn?
+
+  Currently there are no packages for mod_cdn, although we're in the
+  process of making some for, at least, Debian and CentOS. That means
+  you need to compile mod_cdn from the source. To do this, you need to
+  install APR, the Apache runtime library. On a Debian system, the
+  package is libapr1-dev; you may also need libaprutil1-dev. You
+  should compile mod_cdn against Apache 2.2.7 or higher. (Our testing
+  has mainly been with 2.2.8.) Then, just run make.
+
+* How do I set up mod_cdn on CentOS/Fedora/Redhat?
+
+  The installation instructions above are for Debian
+  systems. Everything is mostly the same on a CentOS system, except
+  for the layout of the Apache configuration. Take the lines from
+  cdn.load and put them in /etc/httpd/conf/httpd.conf near the other
+  LoadModule lines. (Don't forget to make sure that libxml2 is
+  installed and available at /usr/lib/libxml2.so.2; if it's available
+  elsewhere, change the LoadFile line.) Put cdn.conf in
+  /etc/httpd/conf.d. Put mod_cdn.so in /usr/lib/httpd/modules. That
+  should do it; put the mod_cdn configuration directives wherever your
+  normal VirtualHost configuration resides.
+
+* Some assets are still being fetched from my origin and not the
+  CDN. Why?
+
+  Assuming your regexes are correct, the assets in question are
+  probably referenced in either CSS or Javascript, rather than in your
+  site's HTML. mod_cdn speaks (X)HTML but does not currently parse CSS
+  or Javascript, either embedded or in separate files. This means, for
+  example, that if you use background-image or other URL-referencing
+  attributes in your CSS, mod_cdn won't rewrite those URLs. Remember:
+  mod_cdn is a quick-and-dirty way to take a lot of the load off your
+  origin. More complicated setups will need custom work to truly
+  offload all the intended content delivery to the CDN.
+
+* mod_cdn is doing really weird things to my Javascript.
+
+  Because mod_cdn is based on libxml2, it's subject to some of the
+  limitations of that library with respect to XML parsing. One problem
+  that's been reported occurs with HTML looking something like this:
+
+  <div>
+    <script type="text/javascript">
+      ...
+      document.write('<div>blah</div>');
+      ...
+    </script>
+  </div>
+
+  Here, the </div> within the Javascript is erroniously treated as
+  non-CDATA by libxml2, which tries to fix it by moving the </script>
+  earlier. Other XML libraries seem to have the same problem. A simple
+  workaround is to use the old Javascript/HTML comment trick so
+  mod_cdn ignores Javascript with HTML embedded in it:
+
+  <div>
+    <script type="text/javascript">
+      // <!--
+      ...
+      document.write('<div>blah</div>');
+      ...
+      // -->
+    </script>
+  </div>
+
+* I'm seeing gibberish or weird encoding errors in HTML parsed by
+  mod_cdn.
+
+  This might be due to interactions between mod_cdn and another Apache
+  module. Some users have reported problems with mod_deflate in some
+  versions of Apache, although we've used mod_cdn and mod_deflate
+  together successfully with Apache 2.2.8. Try temporarily disabling
+  unnecessary modules. If that fixes your problem, please let us know
+  the details of your situation and we'll try to address the problem
+  permanently.
