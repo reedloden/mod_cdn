@@ -45,6 +45,6 @@ between CDN and non-CDN that takes into account server load metrics.
 
 Documentation
 ----------------------------------------------------------------------
-Complete documentation for mod_cdn is available at
-http://agile.internap.com/mod-cdn.  This includes documentation about
-installing and configuring the module.
+Some documentation for mod_cdn is available in the accompanying MANUAL
+file or at http://agile.internap.com/mod-cdn.  This includes
+documentation about installing and configuring the module.
